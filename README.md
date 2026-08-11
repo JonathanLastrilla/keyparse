@@ -7,10 +7,9 @@ This project allows custom JSON key syntax
 ```
 
 ## Usage
-```
-Basic Usage
-
+### Basic Usage
 Deserialize the JSON normally with Jackson:
+```java
 
 ObjectMapper mapper = new ObjectMapper();
 
@@ -29,7 +28,7 @@ Optional<Map<String, String>> attributes =
 ```
 For:
 
-```
+```json
 {
   "product:[type:card,id:123]": "GD01-001"
 }
