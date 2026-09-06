@@ -239,6 +239,7 @@ public class JacksonJsonKeyReaderTest {
     static class Product {
 
         private String product;
+        private String name;
 
         @PropertyAttribute(key = "product", attribute = "id")
         private String id;
@@ -268,6 +269,14 @@ public class JacksonJsonKeyReaderTest {
 
         public void setType(String type) {
             this.type = type;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
         }
 
     }
