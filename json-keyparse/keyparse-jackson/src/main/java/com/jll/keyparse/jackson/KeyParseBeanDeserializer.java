@@ -18,12 +18,14 @@ import com.fasterxml.jackson.databind.deser.SettableBeanProperty;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.jll.json.key.parse.JsonKeyParse;
 import com.jll.json.key.parse.ParsedKey;
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
+import java.util.logging.Logger;
 
 /**
  *
@@ -31,6 +33,7 @@ import java.util.Map;
  */
 public class KeyParseBeanDeserializer<T> extends StdDeserializer<T> implements ResolvableDeserializer {
 
+    private static final Logger LOG = Logger.getLogger(KeyParseBeanDeserializer.class.getName());
     private final JsonDeserializer<?> delegate;
     private final Class<?> beanType;
 
@@ -143,6 +146,8 @@ public class KeyParseBeanDeserializer<T> extends StdDeserializer<T> implements R
             Map<String, ParsedKey> parsedKeys)
             throws IOException {
 
+        Set<String> consumedKeys = new HashSet<>();
+
         for (Field field : beanType.getDeclaredFields()) {
 
             PropertyAttribute annotation
@@ -156,25 +161,45 @@ public class KeyParseBeanDeserializer<T> extends StdDeserializer<T> implements R
                     = parsedKeys.get(annotation.key());
 
             if (key == null) {
+                if (!annotation.nullable()) {
+                    throw new JsonMappingException(
+                            null,
+                            "Required KeyParse attribute '"
+                            + annotation.attribute()
+                            + "' for property '"
+                            + annotation.key()
+                            + "' is missing on "
+                            + beanType.getName()
+                    );
+                }
+
                 continue;
             }
 
             String value
-                    = key.attributes()
-                            .get(annotation.attribute());
+                    = key.attributes().get(annotation.attribute());
 
             if (value == null) {
+                if (!annotation.nullable()) {
+                    throw new JsonMappingException(
+                            null,
+                            "Required KeyParse attribute '"
+                            + annotation.attribute()
+                            + "' for property '"
+                            + annotation.key()
+                            + "' is missing on "
+                            + beanType.getName()
+                    );
+                }
+
                 continue;
             }
 
+            consumedKeys.add(annotation.key());
+
             try {
                 field.setAccessible(true);
-                System.out.println(
-                        "ATTRIBUTE: "
-                        + value
-                        + " TARGET TYPE: "
-                        + field.getType()
-                );
+
                 Object converted
                         = convertAttribute(
                                 value,
@@ -184,13 +209,24 @@ public class KeyParseBeanDeserializer<T> extends StdDeserializer<T> implements R
                 field.set(result, converted);
 
             } catch (IllegalAccessException e) {
-
                 throw new IOException(
                         "Unable to set KeyParse attribute '"
                         + annotation.attribute()
                         + "' on "
                         + field.getName(),
                         e
+                );
+            }
+        }
+
+        for (String key : parsedKeys.keySet()) {
+
+            if (!consumedKeys.contains(key)) {
+                LOG.warning(
+                        "Unconsumed KeyParse metadata for property '"
+                        + key
+                        + "' on "
+                        + beanType.getName()
                 );
             }
         }

@@ -20,4 +20,6 @@ public @interface PropertyAttribute {
     String key();
 
     String attribute();
+    
+    boolean nullable() default true;
 }

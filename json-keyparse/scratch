@@ -1,33 +1,11 @@
-private Object convertAttribute(
-            String value,
-            Class<?> type) {
+@Test
+void nullableDefaultsToTrue() throws Exception {
 
-        if (type == String.class) {
-            return value;
-        }
+    Field field =
+            Product.class.getDeclaredField("type");
 
-        if (type == int.class || type == Integer.class) {
-            return Integer.valueOf(value);
-        }
+    PropertyAttribute annotation =
+            field.getAnnotation(PropertyAttribute.class);
 
-        if (type == long.class || type == Long.class) {
-            return Long.valueOf(value);
-        }
-
-        if (type == boolean.class || type == Boolean.class) {
-            return Boolean.valueOf(value);
-        }
-
-        if (type == double.class || type == Double.class) {
-            return Double.valueOf(value);
-        }
-
-        if (type == float.class || type == Float.class) {
-            return Float.valueOf(value);
-        }
-
-        throw new IllegalArgumentException(
-                "Unsupported @KeyAttribute type: "
-                + type.getName()
-        );
-    }
+    assertTrue(annotation.nullable());
+}
