@@ -1,73 +1,7 @@
- @Override
-    @SuppressWarnings("unchecked")
-    public T deserialize(JsonParser parser, DeserializationContext ctxt) throws IOException, JacksonException {
-        System.out.println("DESERIALIZE " + beanType);
-        KeyParseJsonParser logicalParser
-                = new KeyParseJsonParser(parser);
-
-        /*
-     * The delegate was created by Jackson normally.
-     * We need a context whose active parser is our
-     * KeyParseJsonParser.
-         */
-        DefaultDeserializationContext defaultContext
-                = (DefaultDeserializationContext) ctxt;
-
-        System.out.println("CURRENT TOKEN = " + parser.currentToken());
-        System.out.println("CURRENT NAME = " + parser.currentName());
-        System.out.println("CURRENT TEXT = " + parser.getText());
-
-        DeserializationContext logicalContext
-                = defaultContext.createInstance(
-                        ctxt.getConfig(),
-                        logicalParser,
-                        null
-                );
-
-        JsonParser p = logicalContext.getParser();
-
-        System.out.println("DESERIALIZE " + beanType);
-        System.out.println("CURRENT TOKEN = " + p.currentToken());
-        System.out.println("CURRENT NAME = " + p.currentName());
-
-        try {
-            if (delegate instanceof BeanDeserializer bd) {
-                Iterator<SettableBeanProperty> it = bd.properties();
-
-                while (it.hasNext()) {
-                    SettableBeanProperty prop = it.next();
-
-                    System.out.println(
-                            "PROPERTY = " + prop.getName()
-                            + ", DESER = " + prop.getValueDeserializer()
-                    );
-                }
-            }
-            ObjectNode rawNode = readObject(logicalParser, logicalContext);
+ ObjectNode rawNode = readObject(logicalParser, logicalContext);
             validateLogicalProperties(logicalParser);
-            ObjectNode logicalNode = JsonNodeFactory.instance.objectNode();
-            for (Map.Entry<String, JsonNode> entry : rawNode.properties()) {
-                String physicalName = entry.getKey();
-                if (JsonKeyParse.parseKey(physicalName).isEmpty()) {
-                    logicalNode.set(physicalName, entry.getValue());
-                }
-            }
-
-            for (Map.Entry<String, JsonNode> entry : rawNode.properties()) {
-                String physicalName = entry.getKey();
-                ParsedKey parsedKey = JsonKeyParse.parseKey(physicalName)
-                        .orElse(null);
-                if (parsedKey == null) {
-                    continue;
-                }
-                String logicalName = parsedKey.key();
-                if (logicalNode.has(logicalName)) {
-                    continue;
-                }
-
-                logicalNode.set(logicalName, entry.getValue());
-            }
-
+            KeyParseLogicalPropertyResolver resolver = new KeyParseLogicalPropertyResolver();
+            ObjectNode logicalNode = resolver.resolve(rawNode);
             System.out.println("RAW NODE: " + rawNode);
             System.out.println("LOGICAL NODE: " + logicalNode);
             JsonParser resolvedParser = logicalNode.traverse(logicalContext.getParser().getCodec()
@@ -88,10 +22,3 @@
             applyAttributes(result, logicalParser.getParsedKeys());
 
             return result;
-        } catch (IOException e) {
-            System.out.println("DELEGATE FAILED:");
-            e.printStackTrace();
-            throw e;
-        }
-
-    }

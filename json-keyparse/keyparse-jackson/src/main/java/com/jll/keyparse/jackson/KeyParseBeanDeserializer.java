@@ -91,30 +91,8 @@ public class KeyParseBeanDeserializer<T> extends StdDeserializer<T> implements R
                 }
             }
             ObjectNode rawNode = readObject(logicalParser, logicalContext);
-            validateLogicalProperties(logicalParser);
-            ObjectNode logicalNode = JsonNodeFactory.instance.objectNode();
-            for (Map.Entry<String, JsonNode> entry : rawNode.properties()) {
-                String physicalName = entry.getKey();
-                if (JsonKeyParse.parseKey(physicalName).isEmpty()) {
-                    logicalNode.set(physicalName, entry.getValue());
-                }
-            }
-
-            for (Map.Entry<String, JsonNode> entry : rawNode.properties()) {
-                String physicalName = entry.getKey();
-                ParsedKey parsedKey = JsonKeyParse.parseKey(physicalName)
-                        .orElse(null);
-                if (parsedKey == null) {
-                    continue;
-                }
-                String logicalName = parsedKey.key();
-                if (logicalNode.has(logicalName)) {
-                    continue;
-                }
-
-                logicalNode.set(logicalName, entry.getValue());
-            }
-
+            KeyParseLogicalPropertyResolver resolver = new KeyParseLogicalPropertyResolver();
+            ObjectNode logicalNode = resolver.resolve(rawNode);
             System.out.println("RAW NODE: " + rawNode);
             System.out.println("LOGICAL NODE: " + logicalNode);
             JsonParser resolvedParser = logicalNode.traverse(logicalContext.getParser().getCodec()
