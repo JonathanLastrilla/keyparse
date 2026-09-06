@@ -169,7 +169,12 @@ public class KeyParseBeanDeserializer<T> extends StdDeserializer<T> implements R
 
             try {
                 field.setAccessible(true);
-
+                System.out.println(
+                        "ATTRIBUTE: "
+                        + value
+                        + " TARGET TYPE: "
+                        + field.getType()
+                );
                 Object converted
                         = convertAttribute(
                                 value,

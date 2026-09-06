@@ -1,24 +1,33 @@
- ObjectNode rawNode = readObject(logicalParser, logicalContext);
-            validateLogicalProperties(logicalParser);
-            KeyParseLogicalPropertyResolver resolver = new KeyParseLogicalPropertyResolver();
-            ObjectNode logicalNode = resolver.resolve(rawNode);
-            System.out.println("RAW NODE: " + rawNode);
-            System.out.println("LOGICAL NODE: " + logicalNode);
-            JsonParser resolvedParser = logicalNode.traverse(logicalContext.getParser().getCodec()
-            );
+private Object convertAttribute(
+            String value,
+            Class<?> type) {
 
-            resolvedParser.nextToken();
+        if (type == String.class) {
+            return value;
+        }
 
-            DefaultDeserializationContext defaultResolvedContext
-                    = (DefaultDeserializationContext) ctxt;
+        if (type == int.class || type == Integer.class) {
+            return Integer.valueOf(value);
+        }
 
-            DeserializationContext resolvedContext = defaultResolvedContext
-                    .createInstance(ctxt.getConfig(), resolvedParser, null);
+        if (type == long.class || type == Long.class) {
+            return Long.valueOf(value);
+        }
 
-            T result = (T) delegate.deserialize(resolvedParser, resolvedContext);
+        if (type == boolean.class || type == Boolean.class) {
+            return Boolean.valueOf(value);
+        }
 
-            System.out.println("DELEGATE SUCCESS");
+        if (type == double.class || type == Double.class) {
+            return Double.valueOf(value);
+        }
 
-            applyAttributes(result, logicalParser.getParsedKeys());
+        if (type == float.class || type == Float.class) {
+            return Float.valueOf(value);
+        }
 
-            return result;
+        throw new IllegalArgumentException(
+                "Unsupported @KeyAttribute type: "
+                + type.getName()
+        );
+    }
