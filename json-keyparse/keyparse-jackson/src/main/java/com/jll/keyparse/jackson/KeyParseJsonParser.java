@@ -22,6 +22,10 @@ public class KeyParseJsonParser extends JsonParserDelegate {
 
     ParsedKey currentParsedKey;
     private final Map<String, ParsedKey> parsedKeys = new LinkedHashMap();
+    private final Map<String, LogicalProperty> logicalProperties
+            = new LinkedHashMap<>();
+
+    private final LogicalPropertyResolver resolver = new LogicalPropertyResolver();
 
     public KeyParseJsonParser(JsonParser d) {
         super(d);
@@ -61,10 +65,34 @@ public class KeyParseJsonParser extends JsonParserDelegate {
                 .orElse(null);
 
         if (currentParsedKey != null) {
-            parsedKeys.put(currentParsedKey.key(), currentParsedKey);
+
+            parsedKeys.put(
+                    currentParsedKey.key(),
+                    currentParsedKey
+            );
+
+            logicalProperties.put(
+                    name,
+                    new LogicalProperty(
+                            currentParsedKey.key(),
+                            name,
+                            currentParsedKey
+                    )
+            );
+
+//            resolver.register(logicalProperties.get(name));
             return currentParsedKey.key();
         }
+
         return name;
+    }
+
+    public LogicalPropertyResolver getResolver() {
+        return resolver;
+    }
+
+    public Map<String, LogicalProperty> getLogicalProperties() {
+        return Collections.unmodifiableMap(logicalProperties);
     }
 
     public ParsedKey getCurrentParsedKey() {
@@ -72,7 +100,11 @@ public class KeyParseJsonParser extends JsonParserDelegate {
     }
 
     public Map<String, ParsedKey> getParsedKeys() {
-        return Collections.unmodifiableMap(parsedKeys);
+        return parsedKeys;
+    }
+
+    public String getPhysicalCurrentName() throws IOException {
+        return delegate.currentName();
     }
 
 }
