@@ -15,6 +15,7 @@ import java.util.logging.Handler;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -297,6 +298,117 @@ public class KeyParsePojoMappingTest {
         assertEquals("GD01-001", product.getProduct());
 
         // TODO: assert no WARN once logger capture is wired
+    }
+
+    @Test
+    void nestedKeyParseMetadataIsNotProcessed() throws Exception {
+        String json = """
+        {
+            "product": {
+                "name:[type:label]": "Gundam"
+            }
+        }
+        """;
+
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new KeyParseJacksonModule());
+
+        NestedProduct product
+                = mapper.readValue(json, NestedProduct.class);
+
+        assertNotNull(product.getProduct());
+        assertEquals(
+                "Gundam",
+                product.getProduct().getName()
+        );
+    }
+
+    @Test
+    void nestedKeyParseMetadataIsOutsideSupportedScope() throws Exception {
+        String json = """
+        {
+            "product": {
+                "name:[type:label]": "Gundam"
+            }
+        }
+        """;
+
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new KeyParseJacksonModule());
+
+        NestedAnnotatedProduct product
+                = mapper.readValue(
+                        json,
+                        NestedAnnotatedProduct.class
+                );
+
+        assertNotNull(product.getProduct());
+        assertEquals(
+                "Gundam",
+                product.getProduct().getName()
+        );
+    }
+
+    static class NestedAnnotatedProduct {
+
+        private NestedAnnotatedName product;
+
+        public NestedAnnotatedName getProduct() {
+            return product;
+        }
+
+        public void setProduct(NestedAnnotatedName product) {
+            this.product = product;
+        }
+    }
+
+    static class NestedAnnotatedName {
+
+        private String name;
+
+        @PropertyAttribute(
+                key = "name",
+                attribute = "type"
+        )
+        private String type;
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public String getType() {
+            return type;
+        }
+    }
+
+    private static class NestedProduct {
+
+        private NestedName product;
+
+        public NestedName getProduct() {
+            return product;
+        }
+
+        public void setProduct(NestedName product) {
+            this.product = product;
+        }
+    }
+
+    static class NestedName {
+
+        private String name;
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
     }
 
     private static class LogHandler extends Handler {
