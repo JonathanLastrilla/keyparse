@@ -158,6 +158,8 @@ public class JacksonJsonKeyReaderTest {
         Product product
                 = mapper.readValue(json, Product.class);
         assertEquals("GD01-001", product.getProduct());
+        assertEquals("card", product.getType());
+        assertEquals("123", product.getId());
     }
 
     @Test

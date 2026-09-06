@@ -87,6 +87,8 @@ public class KeyParseBeanDeserializer<T> extends StdDeserializer<T> implements R
             }
             T result = (T) delegate.deserialize(p, ctxt);
             System.out.println("DELEGATE SUCCESS");
+            applyAttributes(result, logicalParser.getParsedKeys());
+
             return result;
         } catch (Exception e) {
             System.out.println("DELEGATE FAILED:");
