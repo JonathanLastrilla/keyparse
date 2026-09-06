@@ -1,0 +1,11 @@
+@Test
+void nullableDefaultsToTrue() throws Exception {
+
+    Field field =
+            Product.class.getDeclaredField("type");
+
+    PropertyAttribute annotation =
+            field.getAnnotation(PropertyAttribute.class);
+
+    assertTrue(annotation.nullable());
+}

@@ -62,11 +62,14 @@ public class JsonKeyParse {
         int marker = key.indexOf(":[");
         String[] splitted = key.split(":\\[");
 
-        if (marker != -1) {
-            splitted[1] = "[".concat(splitted[1]);
+        if (marker == -1) {
+            return new String[]{key};
         }
 
-        return -1 != marker ? splitted : new String[]{key};
+        return new String[]{
+            splitted[0],
+            String.format("[%s", splitted[1])
+        };
     }
 
     private static boolean validateFormat(String attrMap) {
