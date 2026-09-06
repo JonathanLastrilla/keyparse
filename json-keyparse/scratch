@@ -1,0 +1,8 @@
+@Override
+public void resolve(DeserializationContext ctxt)
+        throws JsonMappingException {
+
+    if (delegate instanceof ResolvableDeserializer resolvable) {
+        resolvable.resolve(ctxt);
+    }
+}

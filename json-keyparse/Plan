@@ -1,0 +1,309 @@
+KEYPARSE PROJECT — NEXT SESSION HANDOFF
+Date: 2026-08-11
+
+PROJECT
+-------
+Repository: https://github.com/JonathanLastrilla/keyparse
+
+Goal:
+Create a schema-less, library-agnostic convention for JSON property keys such as:
+
+{
+  "product:[type:card,id:123]": "GD01-001"
+}
+
+Semantics:
+- Logical key: product
+- Key metadata/attributes: type=card, id=123
+- JSON value remains: "GD01-001"
+
+Core design principle:
+KeyParse is an ADDITIVE semantic layer over existing JSON libraries.
+It should NOT silently alter normal Jackson behavior by default.
+
+IMPORTANT COMPATIBILITY GOAL
+-----------------------------
+The primary concern is backwards compatibility for existing applications, especially:
+JSON -> Jackson POJO/bean -> DB/ORM mapping.
+
+Existing applications should not have to rewrite beans or database mappings merely because JSON producers begin using metadata-bearing keys.
+
+Therefore:
+- Normal Jackson behavior must remain unchanged unless KeyParse is explicitly enabled.
+- Existing exact-property access should continue to work.
+- KeyParse should provide an additional logical-key/attribute interpretation.
+- Attributes should remain metadata, not become bean fields or DB fields.
+
+CURRENT CORE SYNTAX
+-------------------
+Example:
+
+"product:[type:card,id:123]": "GD01-001"
+
+Current parser validates and splits compliant keys.
+
+Current intended ParsedKey concept:
+
+ParsedKey:
+    key = "product"
+    attributes:
+        type = "card"
+        id = "123"
+
+Core parser is library-agnostic.
+
+CURRENT JACKSON DESIGN
+----------------------
+Module/project:
+keyparse-jackson
+
+Current API concept:
+JacksonJsonKeyReader
+
+It operates on the current ObjectNode only.
+
+Current intended behavior:
+- It lazily detects compliant keys.
+- It does NOT recursively search child nodes.
+- Explicit navigation to a child node creates/uses another reader.
+- Ordinary/non-compliant JSON properties are ignored by KeyParse.
+- Attributes are exclusively accessible through KeyParse's API.
+
+Tests already achieved:
+1. Compliant key attributes can be read.
+2. Nested compliant keys are not discovered from the parent reader.
+3. Explicit navigation to a nested ObjectNode allows its compliant key to be read.
+
+Latest state:
+Tests run: 3, Failures: 0, Errors: 0, Skipped: 0
+
+IMPORTANT ARCHITECTURAL REALIZATION
+-----------------------------------
+We initially considered changing Jackson's ObjectNode.get("product") so that:
+
+root.get("product")
+
+would find:
+
+"product:[type:card,id:123]"
+
+But this was identified as risky because it changes existing Jackson semantics.
+
+The current preferred direction is:
+
+Normal Jackson remains literal/unchanged:
+    root.get("product:[type:card,id:123]")
+        -> "GD01-001"
+
+KeyParse API provides logical access:
+    reader.get("product")
+        -> "GD01-001"
+
+    reader.attributes("product")
+        -> {type=card, id=123}
+
+However, there is a SECOND, HIGHER-LEVEL GOAL:
+Existing applications using normal Jackson POJO mapping should ideally be able to opt into KeyParse and continue doing:
+
+    Product bean = mapper.readValue(json, Product.class);
+
+where JSON contains:
+
+    "product:[type:card,id:123]": "GD01-001"
+
+and the bean still receives:
+
+    bean.getProduct() == "GD01-001"
+
+This must be explicitly enabled, likely through a Jackson module.
+
+PROPOSED JACKSON MODULE
+-----------------------
+Concept:
+
+ObjectMapper mapper = new ObjectMapper();
+mapper.registerModule(new KeyParseJacksonModule());
+
+Without the module:
+- 100% normal Jackson behavior.
+
+With the module:
+- KeyParse-aware logical property resolution may map:
+    product:[type:card,id:123]
+  to:
+    product
+
+Metadata remains available through KeyParse and does not become part of the bean/DB value.
+
+IMPORTANT:
+Do NOT assume the implementation mechanism yet.
+First investigate Jackson extension points for property resolution/deserialization.
+
+KEY COMPATIBILITY RULES TO DEFINE
+----------------------------------
+Need explicit rules for:
+
+1. Exact property vs compliant logical property.
+
+Example:
+{
+  "product": "A",
+  "product:[type:card,id:123]": "B"
+}
+
+Recommended rule:
+- Exact property "product" wins for logical property lookup.
+- Metadata-bearing property remains independently accessible.
+
+2. Multiple metadata-bearing properties with the same logical key.
+
+Example:
+{
+  "product:[id:123]": "A",
+  "product:[id:456]": "B"
+}
+
+Need to decide whether logical lookup returns one, multiple, or reports ambiguity.
+Avoid silently losing data.
+
+3. Map behavior.
+
+Example:
+Map<String,Object>
+
+Recommended direction:
+- Preserve literal physical keys in Maps.
+- Do not silently transform:
+    product:[id:123]
+  into:
+    product
+
+4. Jackson annotations:
+- @JsonProperty
+- @JsonAlias
+- @JsonIgnore
+- @JsonNaming
+- @JsonAnySetter
+
+Need precedence rules.
+
+5. Serialization.
+
+Initial recommended behavior:
+Normal Jackson serialization remains unchanged.
+
+A bean:
+    product = "GD01-001"
+
+should serialize normally as:
+    {"product":"GD01-001"}
+
+Metadata is initially an input/interpretation layer unless explicitly supplied for serialization.
+
+CURRENT TICKET PLAN
+-------------------
+KP-001 — Stabilize core key parser
+- Comprehensive grammar/unit tests.
+- No JSON library dependencies.
+
+KP-002 — Define ParsedKey stable core model
+- Suggested:
+  public record ParsedKey(String key, Map<String,String> attributes) {}
+- Decide ordering, duplicates, null/empty behavior, whitespace.
+
+KP-003 — Complete Jackson read-only API
+- reader.get("product")
+- reader.attributes("product")
+- Current-node-only behavior.
+
+KP-004 — Prove Jackson compatibility
+- Exact ObjectNode.get()
+- fieldNames()
+- fields()
+- has()
+- serialization
+- no behavior changes.
+
+KP-005 — Define logical-property resolution rules
+- Exact property precedence.
+- Multiple logical matches.
+- Document and test.
+
+KP-006 — Build Jackson logical-property resolver
+- HIGH-RISK / NEXT TECHNICAL INVESTIGATION.
+- Determine the actual Jackson extension point needed to map metadata-bearing property names to existing POJO properties.
+- Do not overbuild before proving the extension mechanism.
+
+KP-007 — Create KeyParseJacksonModule
+- Explicit opt-in:
+  mapper.registerModule(new KeyParseJacksonModule())
+
+KP-008 — Transparent POJO mapping
+- Verify existing bean:
+  class Product { String product; }
+  maps from:
+  "product:[type:card,id:123]": "GD01-001"
+
+KP-009 — Preserve metadata independently
+- POJO gets only value.
+- Attributes remain KeyParse metadata.
+- Metadata must not become bean/DB fields.
+
+KP-010 — Nested POJO support
+KP-011 — Collections/arrays
+KP-012 — Maps/dynamic objects
+KP-013 — Jackson annotations
+KP-014 — DB/ORM compatibility simulation
+KP-015 — Full backwards-compatibility suite
+KP-016 — Serialization behavior
+KP-017 — Documentation/migration guide
+KP-018 — Release 0.1
+
+RECOMMENDED NEXT SESSION
+------------------------
+Start with KP-006.
+
+Do NOT immediately modify ObjectNode.get().
+The compatibility goal argues strongly against changing core Jackson tree semantics.
+
+Instead:
+1. Inspect Jackson's POJO property/deserializer extension points.
+2. Build the smallest possible prototype.
+3. Prove this works:
+
+JSON:
+{
+  "product:[type:card,id:123]": "GD01-001"
+}
+
+Java:
+class Product {
+    private String product;
+}
+
+Opt-in:
+mapper.registerModule(new KeyParseJacksonModule());
+
+Result:
+Product.product == "GD01-001"
+
+Then separately prove:
+KeyParse can still retrieve:
+type=card
+id=123
+
+DESIGN PHILOSOPHY
+-----------------
+KeyParse should be:
+- schema-less
+- library-agnostic at its core
+- additive rather than invasive
+- lazy
+- current-node scoped for explicit reader API
+- compatible with existing JSON values
+- safe for existing POJO/DB mappings
+- opt-in when changing POJO property resolution
+
+The key distinction:
+Jackson owns the JSON.
+KeyParse interprets additional semantics encoded in property names.
